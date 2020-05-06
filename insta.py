@@ -108,6 +108,6 @@ password = creds['instagram_password']
 session = getinsta(username, password)
 myprofile = Profile(session)
 bio, no_of_post, no_of_follower, no_of_following = myprofile.getProfile(username)
-# myprofile.getFollowing(save = True)
-# myprofile.getFollower(save = True)
+myprofile.getFollowing(save = True)
+myprofile.getFollower(save = True)
 session.close()
