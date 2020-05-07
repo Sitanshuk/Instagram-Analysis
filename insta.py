@@ -2,6 +2,9 @@ from selenium import webdriver
 from time import sleep
 from bs4 import BeautifulSoup
 import json
+from urllib.request import urlretrieve
+import pandas as pd
+import os
 
 
 class LoginPage:
@@ -28,16 +31,6 @@ class HomePage:
         sleep(5)
         return LoginPage(self.browser)
 
-def getinsta(username, password):
-    browser = webdriver.PhantomJS()
-    browser.implicitly_wait(1)
-    home_page = HomePage(browser)
-    login_page = home_page.go_to_login_page()
-    login_page.login(username, password)
-    errors = browser.find_elements_by_css_selector('#error_message')
-    assert len(errors) == 0
-    return browser
-
 class Profile:
     """docstring for Profile"""
     def __init__(self, browser):
@@ -53,7 +46,15 @@ class Profile:
         ul = soup.find('ul')
         li = ul.find_all('li')
         no_of_post, no_of_follower, no_of_following = [l.text for l in li]
-        return bio, no_of_post, no_of_follower, no_of_following
+
+        image_tiles = soup.find_all('img')
+        image_captions = [tile['alt'] for tile in image_tiles]
+        image_urls = [tile['src'] for tile in image_tiles]
+        os.mkdir(username)
+        for i in range(min(10, len(image_urls))):
+            urlretrieve(image_urls[i], f"{username}/{username} pic {i}.png")
+
+        return bio, no_of_post, no_of_follower, no_of_following, image_captions
 
     def getFollowing(self, save = False):
         self.browser.get('https://www.instagram.com/accounts/access_tool/accounts_you_follow')
@@ -99,6 +100,19 @@ class Profile:
                     f.write(follower + '\n')
         return my_followers_list
 
+    def genDatset(self):
+        pass
+
+
+def getinsta(username, password):
+    browser = webdriver.PhantomJS()
+    browser.implicitly_wait(1)
+    home_page = HomePage(browser)
+    login_page = home_page.go_to_login_page()
+    login_page.login(username, password)
+    errors = browser.find_elements_by_css_selector('#error_message')
+    assert len(errors) == 0
+    return browser
 
 
 with open('credential.json', 'r') as f:
@@ -107,7 +121,23 @@ username = creds['instagram_username']
 password = creds['instagram_password']
 session = getinsta(username, password)
 myprofile = Profile(session)
-bio, no_of_post, no_of_follower, no_of_following = myprofile.getProfile(username)
-myprofile.getFollowing(save = True)
-myprofile.getFollower(save = True)
+bio, no_of_post, no_of_follower, no_of_following, image_captions = myprofile.getProfile(username)
+
+df =  pd.DataFrame({
+    "bio" : [bio,],
+    "no_of_post" : [no_of_post,],
+    "no_of_follower" : [no_of_follower,],
+    "no_of_following" : [no_of_following],
+    "image_captions" : [','.join(image_captions),]
+    })
+# df.to_excel("Dataset.xlsx", index=False)
+# for i, image in enumerate(images):
+#     with open(f'{username} pic {i}.png', 'wb') as f:
+#         print(image)
+#         f.write(image)
+
+
+print(bio, no_of_post, no_of_follower, no_of_following, image_captions)
+# myprofile.getFollowing(save = True)
+# myprofile.getFollower(save = True)
 session.close()
