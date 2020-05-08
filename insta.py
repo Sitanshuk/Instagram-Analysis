@@ -50,10 +50,13 @@ class Profile:
         image_tiles = soup.find_all('img')
         image_captions = [tile['alt'] for tile in image_tiles]
         image_urls = [tile['src'] for tile in image_tiles]
-        os.mkdir(username)
-        for i in range(min(10, len(image_urls))):
-            urlretrieve(image_urls[i], f"{username}/{username} pic {i}.png")
-
+        os.mkdir("Dataset/Train/" + username)
+        os.mkdir("Dataset/Valid/" + username)
+        for i in range(min(12, len(image_urls))):
+            if i < 8:
+                urlretrieve(image_urls[i], f"Dataset/Train/{username}/{username} pic {i}.png")
+            else:
+                urlretrieve(image_urls[i], f"Dataset/Valid/{username}/{username} pic {i}.png")
         return bio, no_of_post, no_of_follower, no_of_following, image_captions
 
     def getFollowing(self, save = False):
@@ -100,9 +103,6 @@ class Profile:
                     f.write(follower + '\n')
         return my_followers_list
 
-    def genDatset(self):
-        pass
-
 
 def getinsta(username, password):
     browser = webdriver.PhantomJS()
@@ -115,29 +115,58 @@ def getinsta(username, password):
     return browser
 
 
-with open('credential.json', 'r') as f:
+class Dataset:
+    def __init__(self, browser):
+        self.browser = browser
+
+    def genDataset(self, username):
+        bio_list = list()
+        no_of_post_list  = list()
+        no_of_follower_list  = list()
+        no_of_following_list  = list()
+        image_captions_list  = list()
+        myprofile = Profile(self.browser)
+        my_following_list = myprofile.getFollowing(save = False)
+        my_followers_list = myprofile.getFollower(save = False)
+        for following in my_following_list:
+            bio, no_of_post, no_of_follower, no_of_following, image_captions = myprofile.getProfile(following)
+            bio_list.append(bio)
+            no_of_post_list.append(no_of_post)
+            no_of_follower_list.append(no_of_follower)
+            no_of_following_list.append(no_of_following)
+            image_captions_list.append(image_captions)
+        for follower in my_followers_list:
+            bio, no_of_post, no_of_follower, no_of_following, image_captions = myprofile.getProfile(follower)
+            bio_list.append(bio)
+            no_of_post_list.append(no_of_post)
+            no_of_follower_list.append(no_of_follower)
+            no_of_following_list.append(no_of_following)
+            image_captions_list.append(','.join(image_captions))
+
+        connection_type = ["following"] * len(my_following_list) + ["follower"] * len(my_followers_list)
+        df =  pd.DataFrame({
+            "bio" : bio_list,
+            "no_of_post" : no_of_post_list,
+            "no_of_follower" : no_of_follower_list,
+            "no_of_following" : no_of_following_list,
+            "image_captions" : image_captions_list,
+            "connection_type" : connection_type,
+            })
+        df.to_excel("Dataset.xlsx", index=False)
+
+
+def main():
+    with open('credential.json', 'r') as f:
     creds = json.loads(f.read())
-username = creds['instagram_username']
-password = creds['instagram_password']
-session = getinsta(username, password)
-myprofile = Profile(session)
-bio, no_of_post, no_of_follower, no_of_following, image_captions = myprofile.getProfile(username)
+    username = creds['instagram_username']
+    password = creds['instagram_password']
+    session = getinsta(username, password)
+    datset = Dataset(session)
+    datset.genDataset(username)
+    session.close()
 
-df =  pd.DataFrame({
-    "bio" : [bio,],
-    "no_of_post" : [no_of_post,],
-    "no_of_follower" : [no_of_follower,],
-    "no_of_following" : [no_of_following],
-    "image_captions" : [','.join(image_captions),]
-    })
-# df.to_excel("Dataset.xlsx", index=False)
-# for i, image in enumerate(images):
-#     with open(f'{username} pic {i}.png', 'wb') as f:
-#         print(image)
-#         f.write(image)
+if __name__ == "__main__":
+    main()
 
 
-print(bio, no_of_post, no_of_follower, no_of_following, image_captions)
-# myprofile.getFollowing(save = True)
-# myprofile.getFollower(save = True)
-session.close()
+
